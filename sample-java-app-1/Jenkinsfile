@@ -1,25 +1,66 @@
-pipeline {
+pipeline{
     agent any
-    stages {
-        stage('Build') {
-            steps {
-                sh 'mvn clean package'
+    stages{
+        stage('clone github repo'){
+            steps{
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/Pavangowda73/jenkins-tutorial.git'
             }
         }
-        stage('Test') {
-            steps {
-                sh 'mvn test'
+        stage('maven build'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    sh 'mvn clean package'
+                }
             }
         }
-        stage('Docker Build') {
-            steps {
-                sh 'docker build -t java-jenkins-docker:latest .'
+        stage('maven test'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    sh 'mvn test'
+                }
             }
         }
-        stage('Docker Run') {
-            steps {
-                sh 'docker run --rm java-jenkins-docker:latest'
+        stage('maven compile'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    sh 'mvn compile'
+                }
             }
-        }        
+        }
+        stage('Docker build'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    sh 'docker build -t sample-java .'
+                }
+            }
+        }
+        stage('Docker Tag'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    sh 'docker tag sample-java pavan73384/sample-java-app:V1'
+                }
+            }
+        }
+        stage('Docker login'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    sh 'docker login -u pavan73384 -p XXXXXXXXX'
+                }
+            }
+        }
+        stage('Docker Push'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    sh 'docker push pavan73384/sample-java-app:V1'
+                }
+            }
+        }
+        stage('Clean Work Space'){
+            steps{
+                dir('3-java-jenkins-docker-app') {
+                    cleanWs()
+                }
+            }
+        }
     }
 }
