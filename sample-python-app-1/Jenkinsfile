@@ -1,65 +1,67 @@
-pipeline {
-    agent any
-    stages {
-        stage('Clone Github Repository') {
-            steps {
-                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/theshubhamgour/jenkins-tutorial.git'
-                sh 'pwd'
+pipeline{
+    agent any 
+    stages{
+        stage('git repo checkout'){
+            steps{
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/Pavangowda73/jenkins-tutorial'
             }
-        }        
-        stage('Build') {
-            steps {
+        }
+        stage('compile the code'){
+            steps{
                 dir('4-python-jenkins-docker-app') {
                     sh 'python3 -m py_compile app.py'
-                }
+                    }
             }
         }
-        stage('Test') {
-            steps {
+        stage('runt unit test'){
+            steps{
                 dir('4-python-jenkins-docker-app') {
                     sh 'python3 -m unittest discover tests'
-                }
-            }
-        }
-        stage('Docker Build') {
-            steps {
-                dir('4-python-jenkins-docker-app') {
-                    sh 'docker build -t python-app:latest .'
-                }
-            }
-        }
-        stage('Docker Run') {
-            steps {
-                dir('4-python-jenkins-docker-app') {
-                    sh 'docker run --rm python-app:latest'
-                }
-            }
-        } 
-        stage('Docker Tag & Push') {
-            steps {
-                dir('4-python-jenkins-docker-app') {
-                    withCredentials([usernamePassword(credentialsId: 'theshubhamgour',
-                                                      passwordVariable: 'DockerhubPassword',
-                                                      usernameVariable: 'DockerhubUserName')]) {
-                        sh '''
-                            echo "$DockerhubPassword" | docker login -u "$DockerhubUserName" --password-stdin
-                            docker tag python-app:latest theshubhamgour/python-app:latest
-                            docker push theshubhamgour/python-app:latest
-                        '''
                     }
+            }
+        }
+         stage('Docker build'){
+            steps{
+                dir('4-python-jenkins-docker-app') {
+                    sh 'docker build -t sample-python-app .'
+                    }
+            }
+        }
+         stage('Docker login, tag, push'){
+            steps{
+                dir('4-python-jenkins-docker-app') {
+                     withCredentials([usernamePassword(credentialsId: 'pavan73384', passwordVariable: 'DOCKER_HUB_PASS', usernameVariable: 'DOCKER_HUB_USER')]) {
+                        sh '''
+                             echo "$DOCKER_HUB_PASS" | docker login -u "$DOCKER_HUB_USER" --password-stdin
+                             docker tag sample-python-app pavan73384/sample-python-app:V1
+                             docker push pavan73384/sample-python-app:V1
+                          '''
+                         }
+                }     
+            }
+        }
+        stage('Clean work space'){
+            steps{
+                dir('4-python-jenkins-docker-app'){
+                    cleanWs()
                 }
             }
-        }         
+        }
     }
-    post {
-        always {
-            cleanWs()
+    post{
+        success{
+            emailext(
+                subject:"Jenkins Job SUCCESS ${env.JOB_NAME}✌️👌👍😃",
+                body:"Build Success\nJob: ${env.JOB_NAME}\nBuild_Number: ${env.BUILD_NUMBER}",
+                to:"pavanpavan073384@gmail.com"
+                )
         }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
+        failure{
+            emailext(
+                subject:"Jenkins Job FAILURE ${env.JOB_NAME}😥🤦",
+                body:"Build Failure\nJob: ${env.JOB_NAME}\nBuild_Number: ${env.BUILD_NUMBER}",
+                to:"pavanpavan073384@gmail.com"
+                )
         }
     }
 }
