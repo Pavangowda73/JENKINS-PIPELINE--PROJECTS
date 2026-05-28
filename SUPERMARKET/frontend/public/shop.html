@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FreshCart E-Storefront</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background:#0f172a; color:#f8fafc; display:flex; flex-direction:column; min-height:100vh; }
+        header { background:#022c22; padding:20px; display: flex; justify-content:space-between; align-items:center; border-bottom:3px solid #10b981; }
+        .main-layout { display:grid; grid-template-columns: 2fr 1fr; gap:20px; padding:30px; flex:1; }
+        .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:20px; }
+        .card { background:#1e293b; border-radius:15px; padding:20px; text-align:center; border:1px solid #334155; }
+        .card .icon { font-size:3.5rem; margin-bottom:10px; display:inline-block; }
+        .card h3 { margin-bottom:8px; font-size:1.1rem; color:#e2e8f0; }
+        .price { color:#34d399; font-weight:bold; font-size:1.2rem; margin-bottom:12px; }
+        .add-btn { background:#10b981; border:none; color:white; padding:10px 15px; border-radius:8px; cursor:pointer; font-weight:600; width:100%; transition:0.2s; }
+        .add-btn:hover { background:#059669; }
+        .cart-panel { background:#1e293b; border-radius: 15px; padding:25px; border:1px solid #334155; display:flex; flex-direction:column; height:fit-content; }
+        .cart-title { border-bottom:1px solid #334155; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center; }
+        .cart-item { display: flex; justify-content:space-between; margin-bottom: 12px; font-size:0.95rem; background:#0f172a; padding:10px; border-radius:8px; }
+        .total-box { margin-top:20px; border-top:1px solid #334155; padding-top:15px; font-size:1.2rem; font-weight:bold; display:flex; justify-content:space-between; }
+        .checkout-btn { width:100%; margin-top:15px; padding:14px; background:linear-gradient(90deg, #10b981, #059669); border:none; color:white; font-weight:bold; border-radius:10px; cursor:pointer; font-size:1rem; transition:0.2s; }
+        .checkout-btn:hover { transform: translateY(-2px); }
+        .logout-btn { background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .logout-btn:hover { background: #dc2626; }
+    </style>
+    <script src="/config.js"></script>
+</head>
+<body>
+    <header>
+        <h2><i class="fa-solid fa-leaf"></i> FreshCart Market Layout</h2>
+        <div style="display:flex; align-items:center; gap:20px;">
+            <div id="userInfo" style="font-weight:500;">User Node: Guest</div>
+            <button class="logout-btn" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+        </div>
+    </header>
+    <div class="main-layout">
+        <div>
+            <h3 style="margin-bottom:20px; color:#94a3b8;"><i class="fa-solid fa-store"></i> Available Groceries</h3>
+            <div class="grid" id="productsCatalog"></div>
+        </div>
+        <div class="cart-panel">
+            <div class="cart-title">
+                <h3><i class="fa-solid fa-cart-shopping"></i> Cart Summary</h3>
+                <span id="itemCount" style="background:#10b981; padding:2px 8px; border-radius:12px; font-size:0.8rem;">0 Units</span>
+            </div>
+            <div id="cartContents" style="flex:1;"></div>
+            <div class="total-box">
+                <span>Aggregate Total:</span>
+                <span id="cartTotal" style="color:#34d399;">$0.00</span>
+            </div>
+            <button class="checkout-btn" onclick="executeCheckout()"><i class="fa-solid fa-bag-shopping"></i> Complete Checkout Loop</button>
+        </div>
+    </div>
+
+    <script>
+        const BASE_API = (window.API_BASE_URL || "http://localhost:5000") + "/api";
+        const userId = localStorage.getItem("market_userId");
+        const userName = localStorage.getItem("market_userName");
+
+        if(!userId) {
+            window.location.href = "index.html";
+        } else {
+            document.getElementById("userInfo").innerHTML = `<i class="fa-solid fa-user-circle"></i> Node Active: ${userName}`;
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = "index.html";
+        }
+
+        async function fetchCatalog() {
+            const res = await fetch(`${BASE_API}/products`);
+            const products = await res.json();
+            const catalogDiv = document.getElementById("productsCatalog");
+            catalogDiv.innerHTML = "";
+            products.forEach(p => {
+                catalogDiv.innerHTML += `
+                <div class="card">
+                <span class="icon">${p.image || '🛒'}</span>
+                <h3>${p.name}</h3>
+                <div class="price">$${p.price.toFixed(2)}</div>
+                <button class="add-btn" onclick="addToCart('${p._id}')"><i class="fa-solid fa-plus"></i> Add item</button>
+                </div>`;
+            });
+        }
+
+        async function addToCart(productId) {
+            await fetch(`${BASE_API}/cart/add`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId, productId })
+            });
+            renderCart();
+        }
+
+        async function renderCart() {
+            const res = await fetch(`${BASE_API}/cart/${userId}`);
+            const cart = await res.json();
+            const container = document.getElementById("cartContents");
+            container.innerHTML = "";
+            let total = 0;
+            let totalCount = 0;
+
+            if(!cart.items || cart.items.length === 0) {
+                container.innerHTML = '<div style="color:#64748b; text-align:center; margin-top:20px;">Cart array slice is currently empty.</div>';
+            } else {
+                cart.items.forEach(item => {
+                    const p = item.productId;
+                    if(p) {
+                        const cost = p.price * item.quantity;
+                        total += cost;
+                        totalCount += item.quantity;
+                        container.innerHTML += `
+                        <div class="cart-item">
+                        <div><strong>${p.name}</strong><br><small style="color:#94a3b8;">Qty: ${item.quantity} × $${p.price.toFixed(2)}</small></div>
+                        <div style="font-weight:600; align-self:center;">$${cost.toFixed(2)}</div>
+                        </div>`;
+                    }
+                });
+            }
+            document.getElementById("cartTotal").innerText = `$${total.toFixed(2)}`;
+            document.getElementById("itemCount").innerText = `${totalCount} Units`;
+        }
+
+        async function executeCheckout() {
+            const res = await fetch(`${BASE_API}/checkout`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+            if(res.ok) {
+                alert(`Transaction Success! Processing Order Total of: $${data.order.totalAmount.toFixed(2)}`);
+                renderCart();
+            } else {
+                alert(data.message);
+            }
+        }
+
+        fetchCatalog();
+        renderCart();
+    </script>
+</body>
+</html>
