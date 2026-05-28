@@ -1,0 +1,99 @@
+pipeline{
+    agent any
+    environment{
+        IMAGE_NAME = 'pavan73384/supermarket'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        EC2_PUBLIC_IP = '13.206.188.182'
+    }
+    stages{
+        stage('clone git repo'){
+            steps{
+                git branch: 'main', poll: false, url: 'https://github.com/Pavangowda73/JENKINS-PIPELINE--PROJECTS.git'
+            }
+        }
+        stage('Build frontend image'){
+            steps{
+                dir('GROCERY-SHOP/frontend') {
+                    sh 'docker build -t $IMAGE_NAME:smfV$IMAGE_TAG .'
+                    }
+            }
+        }
+         stage('Build backend image'){
+            steps{
+                dir('GROCERY-SHOP/backend') {
+                    sh 'docker build -t $IMAGE_NAME:smbV$IMAGE_TAG .'
+                    }
+            }
+        }
+         stage('Docker push'){
+            steps{
+               script{
+                    withDockerRegistry(credentialsId: 'dcoker-cred') {
+                    sh '''
+                    docker push  $IMAGE_NAME:smfV$IMAGE_TAG
+                    docker push  $IMAGE_NAME:smbV$IMAGE_TAG
+                    '''
+                    }
+               }
+            }
+        }
+         stage('create docker network'){
+            steps{
+                sh 'docker network create --driver bridge supermarket-network'
+            }
+        }
+         stage('creating mongodb container'){
+            steps{
+                sh '''
+                docker run -d \
+                --name mongodb \
+                --network supermarket-network \
+                -p 27017:27017 \
+                -e MONGO_INITDB_ROOT_USERNAME=admin \
+                -e MONGO_INITDB_ROOT_PASSWORD=admin123 \
+                mongo:latest
+                '''
+            }
+        }
+        stage('creating backend container'){
+            steps{
+                sh '''
+                docker run -d \
+                --name market-backend-container \
+                --network supermarket-network \
+                -p 5000:5000 \
+                -e MONGO_URL="mongodb://admin:admin123@mongodb:27017/supermarket?authSource=admin" \
+                $IMAGE_NAME:smbV$IMAGE_TAG
+                '''
+            }
+        }
+        stage('creating frontend cotainer'){
+            steps{
+                sh '''
+                docker run -d \
+                --name market-frontend-container \
+                --network supermarket-network \
+                -p 3000:3000 \
+                -e BACKEND_URL="http://$EC2_PUBLIC_IP:5000" \
+                $IMAGE_NAME:smfV$IMAGE_TAG
+                '''
+            }
+        }
+    }
+    post{
+        success{
+            emailext(
+                subject: "Build Success✌️👌😃👍",
+                body: "JOB-NAME:${env.JOB_NAME}\nBUILD-NUMBER:${env.BUILD_NUMBER}",
+                to: "pavanapavan073384@gmail.com"
+                )
+        }
+        failure{
+            emailext(
+                subject: "Build Failure😥🤦",
+                body: "JOB-NAME:${env.JOB_NAME}\nBUILD-NUMBER:${env.BUILD_NUMBER}",
+                to: "pavanapavan073384@gmail.com"
+                )
+        }
+    }
+}
