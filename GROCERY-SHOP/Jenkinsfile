@@ -3,7 +3,7 @@ pipeline{
     environment{
         IMAGE_NAME = 'pavan73384/supermarket'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        EC2_PUBLIC_IP = '13.206.188.182'
+        EC2_PUBLIC_IP = 'XX.XX.XXX.XX'
     }
     stages{
         stage('clone git repo'){
