@@ -1,0 +1,43 @@
+services:
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    networks:
+      - supermarket-network
+
+  backend:
+    image: pavan73384/supermarket:smbV2
+    container_name: market-backend-container
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      MONGO_URL: mongodb://admin:admin123@mongodb:27017/supermarket?authSource=admin
+    networks:
+      - supermarket-network
+    depends_on:
+      - mongodb
+
+  frontend:
+    image: pavan73384/supermarket:smfV2
+    container_name: market-frontend-container
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_URL: http://3.108.44.103:5000
+    networks:
+      - supermarket-network
+    depends_on:
+      - backend
+
+networks:
+  supermarket-network:
+    driver: bridge
