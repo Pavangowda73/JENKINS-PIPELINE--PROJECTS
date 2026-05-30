@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/Pavangowda73/JENKINS-PIPELINE--PROJECTS.git'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                dir('GROCERY-SHOP') {
+                    withSonarQubeEnv('sonar') {
+                    sh '''
+                    $SCANNER_HOME/bin/sonar-scanner \
+                    -Dsonar.projectKey=grocery \
+                    -Dsonar.projectName=grocery \
+                    -Dsonar.sources=.
+                    '''
+                }
+                    }
+            }
+        }
+        stage('Trivy FS Scan') {
+            steps {
+                dir('GROCERY-SHOP') {
+                sh 'trivy fs . > trivy-report.txt'
+                }
+            }
+        }
+    }
+}
